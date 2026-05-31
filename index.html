@@ -1725,7 +1725,7 @@
       <!-- To-Do List -->
       <div class="tile todo-tile" id="tile-todos">
         <div class="tile-head">
-          <span class="tile-icon todo" aria-hidden="true">
+          <span class="tile-icon color-green" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 4.5 7.5 7 5"/><polyline points="3 12 4.5 13.5 7 11"/><polyline points="3 18 4.5 19.5 7 17"/><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/></svg>
           </span>
           <span class="todo-progress" id="todo-progress">0 van 0</span>
@@ -1756,7 +1756,7 @@
     <section class="calendar-section" style="margin-top:20px;">
       <div class="tile calendar-tile" id="tile-calendar" style="width:100%;">
         <button type="button" id="calendar-toggle" aria-expanded="false" style="display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;cursor:pointer;padding:0;font:inherit;color:inherit;text-align:left;">
-          <span class="tile-icon planning" aria-hidden="true">
+          <span class="tile-icon color-green" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           </span>
           <h3 class="tile-title" style="margin:0;flex:1;">Agenda</h3>
@@ -2438,6 +2438,12 @@
           const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
           tiles = Array.isArray(parsed) ? parsed : [];
         } catch { tiles = []; }
+        try {
+          if (!localStorage.getItem('tv-allgreen-v1')) {
+            tiles.forEach(function (t) { t.color = 'green'; });
+            save();
+          }
+        } catch (e) {}
       }
       function save() {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tiles)); } catch {}
@@ -2656,7 +2662,7 @@
         load();
         try {
           if (!localStorage.getItem('tv-welcome-seeded-v1')) {
-            tiles.unshift({ id: genId(), kind: 'note', color: 'purple', title: 'Welkom \u{1F44B}', description: 'Klik op de gestreepte +-tegel om je eigen tegel of pagina toe te voegen. Beweeg over een tegel voor het potlood (bewerken) en het kruisje (verwijderen).' });
+            tiles.unshift({ id: genId(), kind: 'note', color: 'green', title: 'Welkom \u{1F44B}', description: 'Klik op de gestreepte +-tegel om je eigen tegel of pagina toe te voegen. Beweeg over een tegel voor het potlood (bewerken) en het kruisje (verwijderen).' });
             save();
             localStorage.setItem('tv-welcome-seeded-v1', '1');
           }
@@ -2705,13 +2711,13 @@
       const linkAdd = document.getElementById('ct-link-add');
       if (!placeholder || !modal || !form) return;
 
-      let selectedColor = 'blue';
+      let selectedColor = 'green';
 
       let editingTileId = null;
       function openModal() {
         editingTileId = null;
         form.reset();
-        selectedColor = 'blue';
+        selectedColor = 'green';
         updateSwatchUI();
         typePicker.querySelectorAll('input').forEach(i => i.disabled = false);
         updateTypeUI();
@@ -3018,13 +3024,13 @@
     const CustomBookmarks = (() => {
       const KEY = 'tv-bookmarks-v2';
       const SEED = [
-        { label:'Gmail', url:'https://mail.google.com/mail/u/?authuser=mediazestienhoven@gmail.com', color:'coral' },
-        { label:'La Posta', url:'https://app.laposta.nl/start/', color:'blue' },
-        { label:'Tuinliefhebbers FB', url:'https://www.facebook.com/groups/196771501045268', color:'blue' },
-        { label:'Instagram', url:'https://www.instagram.com/vtv16hoven/', color:'purple' },
+        { label:'Gmail', url:'https://mail.google.com/mail/u/?authuser=mediazestienhoven@gmail.com', color:'green' },
+        { label:'La Posta', url:'https://app.laposta.nl/start/', color:'green' },
+        { label:'Tuinliefhebbers FB', url:'https://www.facebook.com/groups/196771501045268', color:'green' },
+        { label:'Instagram', url:'https://www.instagram.com/vtv16hoven/', color:'green' },
         { label:'Urenoverzicht', url:'https://docs.google.com/spreadsheets/d/16A88p9O7mf1LQi1WCfm6ggI-MPUe225DqyDCd_Dxlmc/edit', color:'green' },
-        { label:'Wix', url:'https://users.wix.com/signin/?forceRender=true', color:'yellow' },
-        { label:'Drive', url:'https://drive.google.com/drive/u/?authuser=mediazestienhoven@gmail.com', color:'teal' }
+        { label:'Wix', url:'https://users.wix.com/signin/?forceRender=true', color:'green' },
+        { label:'Drive', url:'https://drive.google.com/drive/u/?authuser=mediazestienhoven@gmail.com', color:'green' }
       ];
       let items = [];
       function genId(){ return 'bm_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
@@ -3032,6 +3038,12 @@
         let raw = null; try { raw = localStorage.getItem(KEY); } catch {}
         if (raw) { try { const p = JSON.parse(raw); items = Array.isArray(p) ? p : []; } catch { items = []; } }
         else { items = SEED.map(s => Object.assign({ id: genId() }, s)); save(); }
+        try {
+          if (!localStorage.getItem('tv-allgreen-v1')) {
+            items.forEach(function (it) { it.color = 'green'; });
+            save();
+          }
+        } catch (e) {}
       }
       function save(){ try { localStorage.setItem(KEY, JSON.stringify(items)); } catch {} }
       function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -3097,6 +3109,7 @@
       return { init, add, update, get, remove };
     })();
     CustomBookmarks.init();
+    try { localStorage.setItem('tv-allgreen-v1', '1'); } catch (e) {}
 
     // ---- Toevoegen / bewerken favoriet ----
     let editingBookmarkId = null;
