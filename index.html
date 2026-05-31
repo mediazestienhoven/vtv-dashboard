@@ -1566,9 +1566,77 @@
   @media (max-width: 380px) {
     .calendar-tile iframe, #calendar-frame { height: 380px; }
   }
+  /* ===== Wachtwoordscherm (eenmalig) ===== */
+  body.pw-locked { overflow: hidden; }
+  .pw-gate {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, #A3E4A8 0%, #6FCB77 100%);
+    padding: 24px;
+  }
+  .pw-card {
+    background: #fff; border-radius: 20px; padding: 32px 28px;
+    width: 100%; max-width: 360px; text-align: center;
+    box-shadow: 0 18px 50px rgba(0,43,80,0.22);
+    font-family: 'Inter', sans-serif;
+  }
+  .pw-card h1 { font-family: 'Nunito', sans-serif; font-size: 22px; color: var(--tv-navy); margin: 0 0 6px; }
+  .pw-card p { font-size: 14px; color: var(--tv-text-muted); margin: 0 0 18px; }
+  .pw-card input {
+    width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 15px;
+    border: 1.5px solid var(--tv-border); border-radius: 12px; margin-bottom: 12px;
+    font-family: 'Inter', sans-serif;
+  }
+  .pw-card input:focus { outline: none; border-color: var(--tv-blue); }
+  .pw-card button {
+    width: 100%; padding: 12px; font-size: 15px; font-weight: 800;
+    font-family: 'Nunito', sans-serif; color: #fff; background: var(--tv-blue);
+    border: 0; border-radius: 12px; cursor: pointer;
+  }
+  .pw-card button:hover { filter: brightness(1.05); }
+  .pw-error { color: var(--tv-coral); font-size: 13px; font-weight: 700; margin-top: 10px; }
 </style>
 </head>
 <body>
+<div id="pw-gate" class="pw-gate">
+  <div class="pw-card">
+    <h1>Mediateam VTV Zestienhoven</h1>
+    <p>Voer het wachtwoord in om verder te gaan.</p>
+    <form id="pw-form">
+      <input type="password" id="pw-input" placeholder="Wachtwoord" autocomplete="off" autofocus />
+      <button type="submit">Openen</button>
+      <div id="pw-error" class="pw-error" hidden>Onjuist wachtwoord</div>
+    </form>
+  </div>
+</div>
+<script>
+  (function gate(){
+    var KEY = 'tv-gate-v1';
+    var PASS = atob('dHVpbmxldmVuMTAx');
+    var gate = document.getElementById('pw-gate');
+    if (!gate) return;
+    var unlocked = false;
+    try { unlocked = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    if (unlocked) { gate.remove(); return; }
+    document.body.classList.add('pw-locked');
+    var form = document.getElementById('pw-form');
+    var input = document.getElementById('pw-input');
+    var err = document.getElementById('pw-error');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (input.value === PASS) {
+        try { localStorage.setItem(KEY, '1'); } catch (e2) {}
+        document.body.classList.remove('pw-locked');
+        gate.remove();
+      } else {
+        if (err) err.hidden = false;
+        input.value = '';
+        input.focus();
+      }
+    });
+    setTimeout(function () { if (input) input.focus(); }, 80);
+  })();
+</script>
 <div class="app">
 
   <!-- ===== Sidebar ===== -->
