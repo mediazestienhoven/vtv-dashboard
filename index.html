@@ -1617,7 +1617,7 @@
     if (!gate) return;
     var unlocked = false;
     try { unlocked = localStorage.getItem(KEY) === '1'; } catch (e) {}
-    if (unlocked) { gate.remove(); return; }
+    if (unlocked) { gate.remove(); window.__gateOpen = true; return; }
     document.body.classList.add('pw-locked');
     var form = document.getElementById('pw-form');
     var input = document.getElementById('pw-input');
@@ -1628,6 +1628,8 @@
         try { localStorage.setItem(KEY, '1'); } catch (e2) {}
         document.body.classList.remove('pw-locked');
         gate.remove();
+        window.__gateOpen = true;
+        document.dispatchEvent(new Event('gate-open'));
       } else {
         if (err) err.hidden = false;
         input.value = '';
@@ -2064,6 +2066,23 @@
         <button type="submit" class="btn primary">Opslaan</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Inklok-vraag bij openen -->
+<div class="modal-overlay" id="modal-clockin">
+  <div class="modal-card" role="dialog" aria-labelledby="modal-clockin-title">
+    <div class="modal-head">
+      <h3 class="modal-title" id="modal-clockin-title">Ga je aan de slag?</h3>
+      <button type="button" class="modal-close" data-close="modal-clockin" aria-label="Sluiten">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <p style="font-size:14px;color:var(--tv-text-muted);line-height:1.55;margin-bottom:18px;">Wil je je tijd registreren? Klok dan even in — je uren verschijnen straks automatisch in de Sheet.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close="modal-clockin" id="clockin-later">Niet nu</button>
+      <button type="button" class="btn primary" id="clockin-now">Inklokken</button>
+    </div>
   </div>
 </div>
 
@@ -3334,6 +3353,28 @@
     const ttNameBtn = document.getElementById('tt-name');
     if (ttNameBtn) ttNameBtn.addEventListener('click', () => openNameModal(null));
     renderUserName();
+
+    // ---- Inklok-vraag bij openen (alleen als je uitgeklokt bent) ----
+    function maybeAskClockIn() {
+      if (state.current) return;
+      try { if (sessionStorage.getItem('tv-asked-clockin') === '1') return; } catch (e) {}
+      openModal('modal-clockin');
+    }
+    (function clockInPrompt(){
+      function markAsked(){ try { sessionStorage.setItem('tv-asked-clockin', '1'); } catch (e) {} }
+      const nowBtn = document.getElementById('clockin-now');
+      if (nowBtn) nowBtn.addEventListener('click', () => {
+        markAsked();
+        closeModal('modal-clockin');
+        if (!getUserName()) openNameModal(doClockIn); else doClockIn();
+      });
+      document.querySelectorAll('[data-close="modal-clockin"]').forEach(el => el.addEventListener('click', markAsked));
+      const ov = document.getElementById('modal-clockin');
+      if (ov) ov.addEventListener('click', (e) => { if (e.target === ov) markAsked(); });
+      // Toon na het wachtwoordscherm, of meteen als de pagina al ontgrendeld is
+      if (window.__gateOpen) maybeAskClockIn();
+      else document.addEventListener('gate-open', maybeAskClockIn, { once: true });
+    })();
 
     // Agenda-tegel in-/uitklappen (iframe laadt pas bij eerste keer openen)
     (function calendarToggle(){
