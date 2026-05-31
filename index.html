@@ -3223,6 +3223,17 @@
     }
     let state = readState();
 
+    // Houd tabbladen in dezelfde browser gelijk: lees de actuele klok-stand opnieuw
+    // en werk bij zodra een ander tabblad iets verandert (voorkomt dubbel inklokken).
+    function reloadState() {
+      const fresh = readState();
+      state.entries = fresh.entries;
+      state.current = fresh.current;
+    }
+    window.addEventListener('storage', function (e) {
+      if (!e.key || e.key === STORAGE_KEY) { reloadState(); render(); }
+    });
+
     function startOfWeek(date) {
       const d = new Date(date);
       const day = d.getDay(); // 0 Sun, 1 Mon, ..., 6 Sat
@@ -3349,6 +3360,8 @@
 
     // Clock in / out
     function doClockIn() {
+      reloadState();
+      if (state.current) { render(); return; }
       state.current = { start: new Date().toISOString(), note: '' };
       showToast('Ingeklokt', 2000);
       if (els.note) setTimeout(() => els.note.focus(), 100);
@@ -3357,6 +3370,8 @@
       syncSoon();
     }
     function doClockOut() {
+      reloadState();
+      if (!state.current) { render(); return; }
       const start = state.current.start;
       const end = new Date().toISOString();
       if (new Date(end).getTime() > new Date(start).getTime()) {
@@ -3372,6 +3387,7 @@
       syncSoon();
     }
     els.button.addEventListener('click', () => {
+      reloadState();
       if (state.current) { doClockOut(); return; }
       // Eerste keer: naam vragen, daarna automatisch inklokken.
       if (!getUserName()) { openNameModal(doClockIn); return; }
