@@ -1657,6 +1657,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         Start
       </a>
+      <button type="button" class="nav-item" id="open-help" style="border:0;background:none;width:100%;cursor:pointer;font:inherit;text-align:left;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Hulp &amp; uitleg
+      </button>
     </nav>
 
 
@@ -2066,6 +2070,31 @@
         <button type="submit" class="btn primary">Opslaan</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Hulp & uitleg -->
+<div class="modal-overlay" id="modal-help">
+  <div class="modal-card wide" role="dialog" aria-labelledby="modal-help-title">
+    <div class="modal-head">
+      <h3 class="modal-title" id="modal-help-title">Hulp &amp; uitleg</h3>
+      <button type="button" class="modal-close" data-close="modal-help" aria-label="Sluiten">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <div style="font-size:14px;color:var(--tv-navy);line-height:1.6;">
+      <p style="margin:0 0 16px;color:var(--tv-text-muted);">Dit dashboard is de startplek voor het mediateam. Hieronder kort wat alles doet.</p>
+      <h4 style="font-family:'Nunito',sans-serif;margin:14px 0 4px;">Tijdregistratie (groene balk)</h4>
+      <p style="margin:0;">Klik op <strong>Inklokken</strong> als je begint en op <strong>Uitklokken</strong> als je klaar bent. De eerste keer vul je je naam in (die wordt onthouden). Je uren komen automatisch in de gedeelde Google Sheet, in een tabblad met jouw naam. Vergeten in te klokken? Gebruik <strong>"Vergeten in te klokken? Pas aan"</strong> om met terugwerkende kracht te starten.</p>
+      <h4 style="font-family:'Nunito',sans-serif;margin:16px 0 4px;">Favorieten</h4>
+      <p style="margin:0;">De snelkoppelingen bovenaan. Sleep om de volgorde te wijzigen, of beweeg eroverheen voor het potlood (bewerken) en het kruisje (verwijderen). Met <strong>+ Favoriet toevoegen</strong> maak je er zelf een, met een kleur naar keuze.</p>
+      <h4 style="font-family:'Nunito',sans-serif;margin:16px 0 4px;">Tegels &amp; pagina's</h4>
+      <p style="margin:0;">De Takenlijst is voor je eigen taken. Met de gestreepte <strong>+ Tegel of pagina toevoegen</strong> maak je een snelkoppeling, een notitie, een groepje links of een nieuwe pagina. Eigen tegels kun je bewerken (potlood) en verwijderen (kruisje). Alles wat je toevoegt blijft in je eigen browser bewaard.</p>
+      <h4 style="font-family:'Nunito',sans-serif;margin:16px 0 4px;">Agenda</h4>
+      <p style="margin:0;">Onderaan staat de gedeelde agenda. Klik op <strong>Toon agenda</strong> om 'm uit te klappen.</p>
+      <h4 style="font-family:'Nunito',sans-serif;margin:18px 0 4px;color:var(--tv-blue);">Wensen of werkt er iets niet?</h4>
+      <p style="margin:0;">Heb je een idee voor het dashboard of werkt er iets niet lekker? <strong>App Daniel even</strong> — dan past hij het aan.</p>
+    </div>
   </div>
 </div>
 
@@ -3366,6 +3395,17 @@
     const ttNameBtn = document.getElementById('tt-name');
     if (ttNameBtn) ttNameBtn.addEventListener('click', () => openNameModal(null));
     renderUserName();
+
+    // Hulp & uitleg-knop
+    (function helpWiring(){
+      const btn = document.getElementById('open-help');
+      if (btn) btn.addEventListener('click', () => openModal('modal-help'));
+    })();
+
+    // Waarschuwing bij sluiten van tab/browser als je nog ingeklokt bent
+    window.addEventListener('beforeunload', function (e) {
+      if (state.current) { e.preventDefault(); e.returnValue = ''; }
+    });
 
     // ---- Inklok-vraag bij openen (alleen als je uitgeklokt bent) ----
     function maybeAskClockIn() {
