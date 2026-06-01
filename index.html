@@ -3363,11 +3363,16 @@
       reloadState();
       if (state.current) { render(); return; }
       state.current = { start: new Date().toISOString(), note: '' };
-      showToast('Ingeklokt', 2000);
-      if (els.note) setTimeout(() => els.note.focus(), 100);
+      showToast('Ingeklokt \u00b7 de klok loopt', 3000);
       writeState(state);
       render();
       syncSoon();
+      // Op mobiel staat de klok bovenin: scroll erheen zodat je ziet dat je ingeklokt bent.
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+      // Alleen op desktop het notitieveld focussen (op mobiel dekt het toetsenbord anders de status af).
+      if (els.note && !(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) {
+        setTimeout(function () { els.note.focus(); }, 100);
+      }
     }
     function doClockOut() {
       reloadState();
@@ -3385,6 +3390,7 @@
       writeState(state);
       render();
       syncSoon();
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
     }
     els.button.addEventListener('click', () => {
       reloadState();
