@@ -1066,6 +1066,17 @@
     flex-shrink: 0;
   }
   .entry .delete:hover { color: var(--tv-red); background: rgba(239,68,68,0.08); }
+  .entry-actions { display: inline-flex; gap: 2px; flex-shrink: 0; }
+  .entry-edit, .entry-del {
+    background: none; border: 0; padding: 4px;
+    color: var(--tv-text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+  .entry-edit:hover { color: var(--tv-green); background: rgba(45,106,79,0.10); }
+  .entry-del:hover { color: var(--tv-red); background: rgba(239,68,68,0.08); }
   .empty-state {
     text-align: center;
     padding: 32px 16px;
@@ -1692,7 +1703,7 @@
       </div>
       <div class="tt-actions">
         <button type="button" class="tt-link" id="tt-add">+ Toevoegen</button>
-        <button type="button" class="tt-link" id="tt-view">Week bekijken</button>
+        <button type="button" class="tt-link" id="tt-view">Alle tijden bekijken</button>
       </div>
       <div class="tt-sync unconfigured" id="tt-sync" title="Klik om Sheet-sync in te stellen">
         <span class="sync-dot"></span>
@@ -1920,6 +1931,54 @@
       <div class="modal-actions">
         <button type="button" class="btn ghost" data-close="modal-clockout">Annuleren</button>
         <button type="submit" class="btn primary">Klopt, uitklokken</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Registratie bewerken -->
+<div class="modal-overlay" id="modal-editentry">
+  <div class="modal-card" role="dialog" aria-labelledby="modal-editentry-title">
+    <div class="modal-head">
+      <h3 class="modal-title" id="modal-editentry-title">Registratie bewerken</h3>
+      <button type="button" class="modal-close" data-close="modal-editentry" aria-label="Sluiten">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-editentry">
+      <div class="field">
+        <label style="font-weight:700;color:var(--tv-navy);">Begintijd</label>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="edit-date">Datum</label>
+          <input type="date" id="edit-date">
+        </div>
+        <div class="field">
+          <label for="edit-start">Tijd</label>
+          <input type="time" id="edit-start">
+        </div>
+      </div>
+      <div class="field">
+        <label style="font-weight:700;color:var(--tv-navy);">Eindtijd</label>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="edit-end-date">Datum</label>
+          <input type="date" id="edit-end-date">
+        </div>
+        <div class="field">
+          <label for="edit-end">Tijd</label>
+          <input type="time" id="edit-end">
+        </div>
+      </div>
+      <div class="field">
+        <label for="edit-note">Notitie</label>
+        <input type="text" id="edit-note" placeholder="Waar werkte je aan?">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" data-close="modal-editentry">Annuleren</button>
+        <button type="submit" class="btn primary">Opslaan</button>
       </div>
     </form>
   </div>
@@ -2187,7 +2246,7 @@
   <div class="modal-card wide" role="dialog" aria-labelledby="modal-week-title">
     <div class="modal-head">
       <div>
-        <h3 class="modal-title" id="modal-week-title">Deze week</h3>
+        <h3 class="modal-title" id="modal-week-title">Alle tijden</h3>
         <div class="range" id="week-range" style="font-size:12px;color:var(--tv-text-muted);font-weight:500;margin-top:4px;"></div>
       </div>
       <button type="button" class="modal-close" data-close="modal-week" aria-label="Sluiten">
@@ -2195,7 +2254,7 @@
       </button>
     </div>
     <div class="week-summary">
-      <span class="label">Totaal deze week</span>
+      <span class="label">Totaal</span>
       <span class="total" id="week-total">0h 00m</span>
     </div>
     <div id="week-list"></div>
@@ -3462,17 +3521,18 @@
       if (!state.current) { render(); return; }
       const start = state.current.start;
       const end = endIso || new Date().toISOString();
-      if (new Date(end).getTime() > new Date(start).getTime()) {
-        const entry = { start, end, name: getUserName() };
-        const note = (state.current.note || '').trim();
-        if (note) entry.note = note;
-        state.entries.push(entry);
-      }
+      const note = (state.current.note || '').trim();
       state.current = null;
-      showToast('Uitgeklokt · ' + fmt(new Date(end).getTime() - new Date(start).getTime()) + ' geregistreerd', 3000);
       writeState(state);
-      render();
-      syncSoon();
+      if (new Date(end).getTime() > new Date(start).getTime()) {
+        const sk = isoToSk(start);
+        const entry = { start, end, note: note || undefined, skDate: sk.date, skStart: sk.start };
+        commitOp({ action: 'add', start, end, note }, function () { state.entries.push(entry); });
+        showToast('Uitgeklokt · ' + fmt(new Date(end).getTime() - new Date(start).getTime()) + ' geregistreerd', 3000);
+      } else {
+        showToast('Uitgeklokt', 2000);
+        render();
+      }
       try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
     }
     function doClockOut() { doClockOutAt(null); }
@@ -3982,73 +4042,71 @@
       if (endDate.getTime() <= startDate.getTime()) {
         endDate.setDate(endDate.getDate() + 1);
       }
-      state.entries.push({
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-        manual: true,
-        name: getUserName(),
-        note: note || undefined,
-      });
-      writeState(state);
+      const startIso = startDate.toISOString();
+      const endIso = endDate.toISOString();
+      const sk = isoToSk(startIso);
       closeModal('modal-add');
       showToast('Toegevoegd · ' + fmt(endDate.getTime() - startDate.getTime()), 3000);
-      render();
+      commitOp(
+        { action: 'add', start: startIso, end: endIso, note: note },
+        function () { state.entries.push({ start: startIso, end: endIso, note: note || undefined, skDate: sk.date, skStart: sk.start }); }
+      );
     });
 
-    // View week
+    // Alle tijden bekijken (toont direct de cache en ververst meteen vanuit de Sheet)
     els.viewBtn.addEventListener('click', () => {
       renderWeek();
       openModal('modal-week');
+      refreshFromSheet();
     });
 
     function renderWeek() {
       const now = Date.now();
-      const weekStartDate = startOfWeek(new Date(now));
-      const weekStart = weekStartDate.getTime();
-      const weekEnd = weekStart + 7 * 24 * 60 * 60 * 1000;
-      const weekEndDate = new Date(weekEnd - 1);
 
-      const fmtRange = (a, b) => {
-        const opts = { day: 'numeric', month: 'short' };
-        return a.toLocaleDateString('nl-NL', opts) + ' – ' + b.toLocaleDateString('nl-NL', opts);
-      };
-      document.getElementById('week-range').textContent = fmtRange(weekStartDate, weekEndDate);
-      document.getElementById('week-total').textContent = fmt(totalsForRange(weekStart, weekEnd, now));
-
-      // Group entries by start day
-      const days = {};
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(weekStart + i * 24 * 60 * 60 * 1000);
-        days[dayKey(d)] = { date: new Date(d), entries: [], totalMs: 0 };
+      // Alle registraties (bron = de Sheet) + de eventueel lopende sessie.
+      const all = state.entries.slice();
+      let totalMs = 0;
+      for (const e of all) {
+        const s = new Date(e.start).getTime(), en = new Date(e.end).getTime();
+        if (isFinite(s) && isFinite(en) && en > s) totalMs += en - s;
       }
-      for (const e of state.entries) {
-        const s = new Date(e.start).getTime();
-        const en = new Date(e.end).getTime();
-        if (!isFinite(s) || !isFinite(en) || en <= weekStart || s >= weekEnd) continue;
-        const k = dayKey(new Date(s));
-        if (!days[k]) continue;
-        days[k].entries.push(e);
-        days[k].totalMs += en - s;
-      }
+      let liveEntry = null;
       if (state.current) {
         const s = new Date(state.current.start).getTime();
-        if (isFinite(s) && s < weekEnd && now > weekStart) {
-          const k = dayKey(new Date(Math.max(s, weekStart)));
-          if (days[k]) {
-            days[k].entries.push({ start: state.current.start, end: new Date(now).toISOString(), live: true });
-            days[k].totalMs += now - Math.max(s, weekStart);
-          }
+        if (isFinite(s) && now > s) {
+          totalMs += now - s;
+          liveEntry = { start: state.current.start, end: new Date(now).toISOString(), live: true };
         }
       }
+      const totalEl = document.getElementById('week-total');
+      if (totalEl) totalEl.textContent = fmt(totalMs);
+      const rangeEl = document.getElementById('week-range');
+      const count = all.length + (liveEntry ? 1 : 0);
+      if (rangeEl) rangeEl.textContent = count ? (count + (count === 1 ? ' registratie' : ' registraties')) : '';
+
+      // Groepeer per dag.
+      const days = {};
+      function addToDay(e) {
+        const s = new Date(e.start).getTime();
+        if (!isFinite(s)) return;
+        const k = dayKey(new Date(s));
+        if (!days[k]) days[k] = { date: startOfDay(new Date(s)), entries: [], totalMs: 0 };
+        const en = new Date(e.end).getTime();
+        days[k].entries.push(e);
+        if (isFinite(en) && en > s) days[k].totalMs += en - s;
+      }
+      for (const e of all) addToDay(e);
+      if (liveEntry) addToDay(liveEntry);
 
       const list = document.getElementById('week-list');
       list.innerHTML = '';
-      const keys = Object.keys(days).sort();
-      let any = false;
+      const keys = Object.keys(days).sort().reverse(); // nieuwste dag bovenaan
+      if (!keys.length) {
+        list.innerHTML = '<div class="empty-state">Nog geen registraties.</div>';
+        return;
+      }
       for (const k of keys) {
         const d = days[k];
-        if (d.entries.length === 0) continue;
-        any = true;
         const group = document.createElement('div');
         group.className = 'day-group';
         const dateLabel = d.date.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'short' });
@@ -4056,44 +4114,89 @@
         head.className = 'day-head';
         head.innerHTML = '<span class="day-name">' + escapeHtml(dateLabel) + '</span><span class="day-total">' + fmt(d.totalMs) + '</span>';
         group.appendChild(head);
-        // Sort entries chronologically within day
         d.entries.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
         for (const e of d.entries) {
           const row = document.createElement('div');
           row.className = 'entry';
           const dur = new Date(e.end).getTime() - new Date(e.start).getTime();
-          let badges = '';
-          if (e.live) badges += ' <span class="meta">live</span>';
-          else if (e.manual) badges += ' <span class="meta">manual</span>';
           const noteHtml = e.note ? ' <span class="meta">· ' + escapeHtml(e.note) + '</span>' : '';
           const endLabel = e.live ? 'nu' : fmtTime(e.end);
-          const left = '<span class="times">' + fmtTime(e.start) + ' – ' + endLabel + ' <span class="meta">(' + fmt(dur) + ')</span>' + badges + noteHtml + '</span>';
+          const liveBadge = e.live ? ' <span class="meta">loopt</span>' : '';
+          const left = '<span class="times">' + fmtTime(e.start) + ' – ' + endLabel + ' <span class="meta">(' + fmt(dur) + ')</span>' + liveBadge + noteHtml + '</span>';
           let right = '';
           if (!e.live) {
-            right = '<button type="button" class="delete" aria-label="Delete entry" data-start="' + escapeHtml(e.start) + '" data-end="' + escapeHtml(e.end) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
+            const sk = (e.skDate && e.skStart) ? { date: e.skDate, start: e.skStart } : isoToSk(e.start);
+            const data = ' data-skdate="' + escapeHtml(sk.date) + '" data-skstart="' + escapeHtml(sk.start) +
+              '" data-start="' + escapeHtml(e.start) + '" data-end="' + escapeHtml(e.end) +
+              '" data-note="' + escapeHtml(e.note || '') + '"';
+            right = '<span class="entry-actions">'
+              + '<button type="button" class="entry-edit"' + data + ' aria-label="Bewerken" title="Bewerken"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>'
+              + '<button type="button" class="entry-del"' + data + ' aria-label="Verwijderen" title="Verwijderen"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>'
+              + '</span>';
           }
           row.innerHTML = left + right;
           group.appendChild(row);
         }
         list.appendChild(group);
       }
-      if (!any) {
-        list.innerHTML = '<div class="empty-state">Nog geen registraties deze week.</div>';
-      }
 
-      list.querySelectorAll('.delete').forEach(btn => {
+      list.querySelectorAll('.entry-del').forEach(btn => {
         btn.addEventListener('click', () => {
-          const s = btn.dataset.start;
-          const en = btn.dataset.end;
-          if (!confirm('Delete this entry?')) return;
-          state.entries = state.entries.filter(x => !(x.start === s && x.end === en));
-          writeState(state);
-          syncSoon();
-          renderWeek();
-          render();
+          if (!confirm('Deze registratie verwijderen?')) return;
+          const skDate = btn.dataset.skdate, skStart = btn.dataset.skstart;
+          const st = btn.dataset.start, en = btn.dataset.end;
+          commitOp({ action: 'delete', date: skDate, start: skStart }, function () {
+            state.entries = state.entries.filter(x => !(x.start === st && x.end === en));
+          });
         });
       });
+      list.querySelectorAll('.entry-edit').forEach(btn => {
+        btn.addEventListener('click', () => openEditEntry(btn.dataset));
+      });
     }
+
+    // ---- Registratie bewerken (schrijft 'update' naar de Sheet) ----
+    let editingKey = null;
+    function openEditEntry(ds) {
+      editingKey = { date: ds.skdate, start: ds.skstart };
+      const s = new Date(ds.start), en = new Date(ds.end);
+      document.getElementById('edit-date').value = dateInputValue(s);
+      document.getElementById('edit-start').value = timeInputValue(s);
+      document.getElementById('edit-end-date').value = dateInputValue(en);
+      document.getElementById('edit-end').value = timeInputValue(en);
+      document.getElementById('edit-note').value = ds.note || '';
+      openModal('modal-editentry');
+    }
+    (function editEntryWiring() {
+      const form = document.getElementById('form-editentry');
+      if (!form) return;
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!editingKey) { closeModal('modal-editentry'); return; }
+        const sd = document.getElementById('edit-date').value;
+        const st = document.getElementById('edit-start').value;
+        const ed = document.getElementById('edit-end-date').value;
+        const et = document.getElementById('edit-end').value;
+        const note = document.getElementById('edit-note').value.trim();
+        if (!sd || !st || !ed || !et) { showToast('Vul datum en tijden in', 2600); return; }
+        const begin = new Date(sd + 'T' + st);
+        const end = new Date(ed + 'T' + et);
+        if (isNaN(begin.getTime()) || isNaN(end.getTime())) { showToast('Ongeldige datum of tijd', 2600); return; }
+        if (end.getTime() <= begin.getTime()) { showToast('Eindtijd moet na de begintijd liggen', 2800); return; }
+        const startIso = begin.toISOString(), endIso = end.toISOString();
+        const newSk = isoToSk(startIso);
+        const oldKey = editingKey; editingKey = null;
+        closeModal('modal-editentry');
+        showToast('Bijgewerkt', 2000);
+        commitOp(
+          { action: 'update', oldDate: oldKey.date, oldStart: oldKey.start, start: startIso, end: endIso, note: note },
+          function () {
+            state.entries = state.entries.filter(x => !(x.skDate === oldKey.date && x.skStart === oldKey.start));
+            state.entries.push({ start: startIso, end: endIso, note: note || undefined, skDate: newSk.date, skStart: newSk.start });
+          }
+        );
+      });
+    })();
 
     // ---- Sheet sync ----
     const SYNC_URL_KEY = 'tv-tasks-time-tracker-sync-v1';
@@ -4149,35 +4252,104 @@
       }
     }
 
-    let syncTimer = null;
-    function syncSoon() {
-      clearTimeout(syncTimer);
-      syncTimer = setTimeout(syncNow, 400);
+    // ---- Sheet als bron: lezen + gerichte bewerkingen ----
+    function pad2(n) { return String(n).padStart(2, '0'); }
+
+    // Maakt van een ISO-tijd de Sheet-sleutel (weergegeven Datum + Start) voor matchen.
+    function isoToSk(iso) {
+      const d = new Date(iso);
+      return {
+        date: pad2(d.getDate()) + '-' + pad2(d.getMonth() + 1) + '-' + d.getFullYear(),
+        start: pad2(d.getHours()) + ':' + pad2(d.getMinutes())
+      };
+    }
+    // Zet een Sheet-regel ({date,start,end,note}) om naar een lokale entry met ISO-tijden.
+    function parseSheetEntry(r) {
+      const dm = String(r.date || '').split('-');     // dd-MM-yyyy
+      const ss = String(r.start || '').split(':');     // HH:mm
+      const ee = String(r.end || '').split(':');       // HH:mm
+      if (dm.length !== 3 || ss.length < 2 || ee.length < 2) return null;
+      const Y = +dm[2], Mo = +dm[1] - 1, D = +dm[0];
+      const start = new Date(Y, Mo, D, +ss[0], +ss[1], 0, 0);
+      let end = new Date(Y, Mo, D, +ee[0], +ee[1], 0, 0);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+      if (end.getTime() <= start.getTime()) end = new Date(end.getTime() + 24 * 3600 * 1000); // over middernacht
+      return {
+        start: start.toISOString(),
+        end: end.toISOString(),
+        note: r.note || undefined,
+        skDate: r.date,
+        skStart: r.start
+      };
     }
 
-    async function syncNow() {
+    // Haalt de registraties van deze persoon op uit de Sheet (JSONP, cross-origin).
+    function fetchEntries(cb) {
       const url = getSyncUrl();
-      if (!url) return;
-      setSyncStatus('busy', 'Synchroniseren…');
-      const payload = JSON.stringify({ name: getUserName(), entries: state.entries });
-      try {
-        await fetch(url, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: payload,
-        });
+      const name = getUserName();
+      if (!url || !name) { cb(null); return; }
+      const cbName = 'tvcb_' + Math.random().toString(36).slice(2);
+      const s = document.createElement('script');
+      let done = false;
+      function cleanup() {
+        if (done) return; done = true;
+        try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+        if (s.parentNode) s.parentNode.removeChild(s);
+      }
+      window[cbName] = function (data) {
+        const list = (data && Array.isArray(data.entries)) ? data.entries : [];
+        cleanup(); cb(list);
+      };
+      s.onerror = function () { cleanup(); cb(null); };
+      s.src = url + '?action=list&name=' + encodeURIComponent(name) + '&callback=' + cbName + '&_=' + Date.now();
+      document.body.appendChild(s);
+      setTimeout(function () { if (!done) { cleanup(); cb(null); } }, 12000);
+    }
+
+    let refreshTimer = null;
+    function refreshFromSheet() {
+      const url = getSyncUrl();
+      if (!url || !getUserName()) { return; }
+      setSyncStatus('busy', 'Laden…');
+      fetchEntries(function (list) {
+        if (list === null) { setSyncStatus('err', 'Laden mislukt · check verbinding'); return; }
+        const norm = [];
+        for (let i = 0; i < list.length; i++) { const e = parseSheetEntry(list[i]); if (e) norm.push(e); }
+        state.entries = norm;
+        writeState(state);
         setLastSync(new Date().toISOString());
         refreshSyncStatus();
-      } catch (err) {
-        setSyncStatus('err', 'Sync mislukt · check verbinding');
-      }
+        render();
+        renderWeek();
+      });
     }
+    // syncSoon/syncNow blijven bestaan voor de overige aanroepen, maar betekenen nu
+    // "ververs vanuit de Sheet" (de bron). Er wordt geen lokale lijst meer ge-upload.
+    function syncSoon() {
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(refreshFromSheet, 600);
+    }
+    function syncNow() { refreshFromSheet(); }
 
-    // Hook sync into state-changing actions. These listeners fire after the
-    // original handlers (registration order), so state is up-to-date.
-    els.button.addEventListener('click', () => syncSoon());
-    document.getElementById('form-add').addEventListener('submit', () => syncSoon());
+    // Stuurt één gerichte bewerking naar de Sheet (toevoegen/wijzigen/verwijderen).
+    function sendOp(op) {
+      const url = getSyncUrl();
+      if (!url) return Promise.resolve();
+      op.name = getUserName();
+      return fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(op),
+      }).catch(function () {});
+    }
+    // Voer een bewerking uit: optimistisch lokaal tonen, naar de Sheet sturen, daarna verversen.
+    function commitOp(op, optimistic) {
+      if (typeof optimistic === 'function') optimistic();
+      writeState(state);
+      render(); renderWeek();
+      sendOp(op).then(function () { setTimeout(refreshFromSheet, 1500); });
+    }
 
     // Settings modal wiring — sync row at the bottom still opens it when sync isn't configured
     syncEl.addEventListener('click', () => {
@@ -4210,6 +4382,21 @@
     // Refresh "X minutes ago" label every minute
     setInterval(refreshSyncStatus, 60000);
     refreshSyncStatus();
+
+    // Migratie naar 'Sheet als bron': de oude lokale lijst eenmalig leegmaken
+    // (de Sheet is nu de bron van waarheid). De lopende klok blijft staan.
+    try {
+      if (!localStorage.getItem('tv-sheet-source-v1')) {
+        state.entries = [];
+        writeState(state);
+        localStorage.setItem('tv-sheet-source-v1', '1');
+      }
+    } catch (e) {}
+
+    // Laad de tijden uit de Sheet zodra de pagina ontgrendeld is, en daarna elke 5 min.
+    if (window.__gateOpen) refreshFromSheet();
+    else document.addEventListener('gate-open', refreshFromSheet, { once: true });
+    setInterval(refreshFromSheet, 5 * 60 * 1000);
 
     // ---- To-Do List ----
     const TODO_KEY = 'tv-tasks-todo-list-v1';
