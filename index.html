@@ -4273,7 +4273,7 @@
       const start = new Date(Y, Mo, D, +ss[0], +ss[1], 0, 0);
       let end = new Date(Y, Mo, D, +ee[0], +ee[1], 0, 0);
       if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
-      if (end.getTime() <= start.getTime()) end = new Date(end.getTime() + 24 * 3600 * 1000); // over middernacht
+      if (end.getTime() < start.getTime()) end = new Date(end.getTime() + 24 * 3600 * 1000); // alleen écht over middernacht (eind < begin)
       return {
         start: start.toISOString(),
         end: end.toISOString(),
