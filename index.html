@@ -1877,31 +1877,49 @@
   </div>
 </div>
 
-<!-- Uitklokken op een gekozen tijdstip -->
+<!-- Uitklokken: bevestig en corrigeer eventueel begin- en eindtijd -->
 <div class="modal-overlay" id="modal-clockout">
   <div class="modal-card" role="dialog" aria-labelledby="modal-clockout-title">
     <div class="modal-head">
-      <h3 class="modal-title" id="modal-clockout-title">Uitklokken</h3>
+      <h3 class="modal-title" id="modal-clockout-title">Klopt deze tijd?</h3>
       <button type="button" class="modal-close" data-close="modal-clockout" aria-label="Sluiten">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
     </div>
     <p style="font-size:13px;color:var(--tv-text-muted);margin-bottom:14px;line-height:1.5;">
-      Ingeklokt sinds <strong id="clockout-start-info">—</strong>. Wanneer ben je gestopt?
+      Controleer je begin- en eindtijd en pas ze zo nodig aan voordat je uitklokt.
     </p>
     <form id="form-clockout">
       <div class="field">
-        <label for="clockout-date">Einddatum</label>
-        <input type="date" id="clockout-date">
+        <label style="font-weight:700;color:var(--tv-navy);">Begintijd</label>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="clockout-start-date">Datum</label>
+          <input type="date" id="clockout-start-date">
+        </div>
+        <div class="field">
+          <label for="clockout-start-time">Tijd</label>
+          <input type="time" id="clockout-start-time">
+        </div>
       </div>
       <div class="field">
-        <label for="clockout-time">Eindtijd</label>
-        <input type="time" id="clockout-time">
+        <label style="font-weight:700;color:var(--tv-navy);">Eindtijd</label>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="clockout-date">Datum</label>
+          <input type="date" id="clockout-date">
+        </div>
+        <div class="field">
+          <label for="clockout-time">Tijd</label>
+          <input type="time" id="clockout-time">
+        </div>
       </div>
       <p id="clockout-preview" style="font-size:13px;color:var(--tv-blue);font-weight:600;margin:0 0 12px;">—</p>
       <div class="modal-actions">
-        <button type="button" class="btn ghost" id="clockout-now">Nu uitklokken</button>
-        <button type="submit" class="btn primary">Uitklokken op deze tijd</button>
+        <button type="button" class="btn ghost" data-close="modal-clockout">Annuleren</button>
+        <button type="submit" class="btn primary">Klopt, uitklokken</button>
       </div>
     </form>
   </div>
@@ -3460,7 +3478,8 @@
     function doClockOut() { doClockOutAt(null); }
     els.button.addEventListener('click', () => {
       reloadState();
-      if (state.current) { doClockOut(); return; }
+      // Uitklokken vraagt eerst om bevestiging van begin-/eindtijd.
+      if (state.current) { openClockOutModal(); return; }
       // Eerste keer: naam vragen, daarna automatisch inklokken.
       if (!getUserName()) { openNameModal(doClockIn); return; }
       doClockIn();
@@ -3543,60 +3562,58 @@
       else document.addEventListener('gate-open', maybeAskClockIn, { once: true });
     })();
 
-    // ---- Uitklokken op een gekozen tijdstip (voor wie vergat uit te klokken) ----
+    // ---- Uitklokken: bevestig "Klopt deze tijd?" en corrigeer eventueel begin-/eindtijd ----
     const clockoutForm = document.getElementById('form-clockout');
+    const clockoutStartDate = document.getElementById('clockout-start-date');
+    const clockoutStartTime = document.getElementById('clockout-start-time');
     const clockoutDate = document.getElementById('clockout-date');
     const clockoutTime = document.getElementById('clockout-time');
-    const clockoutStartInfo = document.getElementById('clockout-start-info');
     const clockoutPreview = document.getElementById('clockout-preview');
+    function readClockoutTimes() {
+      const sd = clockoutStartDate.value, stt = clockoutStartTime.value;
+      const ed = clockoutDate.value, et = clockoutTime.value;
+      if (!sd || !stt || !ed || !et) return null;
+      const begin = new Date(sd + 'T' + stt);
+      const end = new Date(ed + 'T' + et);
+      if (isNaN(begin.getTime()) || isNaN(end.getTime())) return null;
+      return { begin, end };
+    }
     function updateClockoutPreview() {
-      if (!state.current || !clockoutPreview) return;
-      const d = clockoutDate.value, t = clockoutTime.value;
-      if (!d || !t) { clockoutPreview.textContent = '—'; return; }
-      const end = new Date(d + 'T' + t);
-      const startMs = new Date(state.current.start).getTime();
-      if (isNaN(end.getTime())) { clockoutPreview.textContent = 'Ongeldige tijd'; return; }
-      if (end.getTime() <= startMs) { clockoutPreview.textContent = 'Eindtijd moet na de starttijd liggen'; return; }
-      if (end.getTime() > Date.now() + 60000) { clockoutPreview.textContent = 'Eindtijd kan niet in de toekomst liggen'; return; }
-      clockoutPreview.textContent = 'Duur: ' + fmt(end.getTime() - startMs);
+      if (!clockoutPreview) return;
+      const t = readClockoutTimes();
+      if (!t) { clockoutPreview.textContent = '—'; return; }
+      if (t.end.getTime() <= t.begin.getTime()) { clockoutPreview.textContent = 'Eindtijd moet na de begintijd liggen'; return; }
+      if (t.end.getTime() > Date.now() + 60000) { clockoutPreview.textContent = 'Eindtijd kan niet in de toekomst liggen'; return; }
+      clockoutPreview.textContent = 'Duur: ' + fmt(t.end.getTime() - t.begin.getTime());
     }
     function openClockOutModal() {
       reloadState();
       if (!state.current) { render(); return; }
       const now = new Date();
+      const st = new Date(state.current.start);
+      if (clockoutStartDate) clockoutStartDate.value = dateInputValue(st);
+      if (clockoutStartTime) clockoutStartTime.value = timeInputValue(st);
       if (clockoutDate) clockoutDate.value = dateInputValue(now);
       if (clockoutTime) clockoutTime.value = timeInputValue(now);
-      if (clockoutStartInfo) {
-        const st = new Date(state.current.start);
-        const sameDay = startOfDay(st).getTime() === startOfDay(now).getTime();
-        clockoutStartInfo.textContent = sameDay
-          ? fmtTime(state.current.start)
-          : st.toLocaleString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-      }
       updateClockoutPreview();
       openModal('modal-clockout');
     }
-    if (clockoutDate) clockoutDate.addEventListener('input', updateClockoutPreview);
-    if (clockoutTime) clockoutTime.addEventListener('input', updateClockoutPreview);
-    const clockoutNowBtn = document.getElementById('clockout-now');
-    if (clockoutNowBtn) clockoutNowBtn.addEventListener('click', () => {
-      closeModal('modal-clockout');
-      doClockOut();
+    [clockoutStartDate, clockoutStartTime, clockoutDate, clockoutTime].forEach(function (el) {
+      if (el) el.addEventListener('input', updateClockoutPreview);
     });
     if (clockoutForm) {
       clockoutForm.addEventListener('submit', (e) => {
         e.preventDefault();
         reloadState();
         if (!state.current) { closeModal('modal-clockout'); return; }
-        const d = clockoutDate.value, t = clockoutTime.value;
-        if (!d || !t) { showToast('Kies een datum en tijd', 2400); return; }
-        const end = new Date(d + 'T' + t);
-        if (isNaN(end.getTime())) { showToast('Ongeldige datum of tijd', 2400); return; }
-        const startMs = new Date(state.current.start).getTime();
-        if (end.getTime() <= startMs) { showToast('Eindtijd moet na de starttijd liggen', 2800); return; }
-        if (end.getTime() > Date.now() + 60000) { showToast('Eindtijd kan niet in de toekomst liggen', 2800); return; }
+        const t = readClockoutTimes();
+        if (!t) { showToast('Kies een geldige begin- en eindtijd', 2600); return; }
+        if (t.end.getTime() <= t.begin.getTime()) { showToast('Eindtijd moet na de begintijd liggen', 2800); return; }
+        if (t.end.getTime() > Date.now() + 60000) { showToast('Eindtijd kan niet in de toekomst liggen', 2800); return; }
+        // Eventueel gecorrigeerde begintijd toepassen (notitie behouden).
+        state.current = { start: t.begin.toISOString(), note: (state.current.note || '') };
         closeModal('modal-clockout');
-        doClockOutAt(end.toISOString());
+        doClockOutAt(t.end.toISOString());
       });
     }
 
