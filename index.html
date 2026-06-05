@@ -1858,6 +1858,55 @@
   </div>
 </div>
 
+<!-- Herinnering: nog ingeklokt (bij openen) -->
+<div class="modal-overlay" id="modal-stillin">
+  <div class="modal-card" role="dialog" aria-labelledby="modal-stillin-title">
+    <div class="modal-head">
+      <h3 class="modal-title" id="modal-stillin-title">Je bent nog ingeklokt</h3>
+      <button type="button" class="modal-close" data-close="modal-stillin" aria-label="Sluiten">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <p style="font-size:14px;color:var(--tv-text-muted);line-height:1.55;margin-bottom:18px;">
+      De klok loopt sinds <strong id="stillin-info">—</strong>. Was je vergeten uit te klokken?
+    </p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close="modal-stillin" id="stillin-keep">Nog bezig — laat lopen</button>
+      <button type="button" class="btn primary" id="stillin-out">Uitklokken…</button>
+    </div>
+  </div>
+</div>
+
+<!-- Uitklokken op een gekozen tijdstip -->
+<div class="modal-overlay" id="modal-clockout">
+  <div class="modal-card" role="dialog" aria-labelledby="modal-clockout-title">
+    <div class="modal-head">
+      <h3 class="modal-title" id="modal-clockout-title">Uitklokken</h3>
+      <button type="button" class="modal-close" data-close="modal-clockout" aria-label="Sluiten">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <p style="font-size:13px;color:var(--tv-text-muted);margin-bottom:14px;line-height:1.5;">
+      Ingeklokt sinds <strong id="clockout-start-info">—</strong>. Wanneer ben je gestopt?
+    </p>
+    <form id="form-clockout">
+      <div class="field">
+        <label for="clockout-date">Einddatum</label>
+        <input type="date" id="clockout-date">
+      </div>
+      <div class="field">
+        <label for="clockout-time">Eindtijd</label>
+        <input type="time" id="clockout-time">
+      </div>
+      <p id="clockout-preview" style="font-size:13px;color:var(--tv-blue);font-weight:600;margin:0 0 12px;">—</p>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" id="clockout-now">Nu uitklokken</button>
+        <button type="submit" class="btn primary">Uitklokken op deze tijd</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Manual entry modal -->
 <div class="modal-overlay" id="modal-add">
   <div class="modal-card" role="dialog" aria-labelledby="modal-add-title">
@@ -3059,7 +3108,9 @@
         { label:'Instagram', url:'https://www.instagram.com/vtv16hoven/', color:'green' },
         { label:'Urenoverzicht', url:'https://docs.google.com/spreadsheets/d/16A88p9O7mf1LQi1WCfm6ggI-MPUe225DqyDCd_Dxlmc/edit', color:'green' },
         { label:'Wix', url:'https://users.wix.com/signin/?forceRender=true', color:'green' },
-        { label:'Drive', url:'https://drive.google.com/drive/u/?authuser=mediazestienhoven@gmail.com', color:'green' }
+        { label:'Drive', url:'https://drive.google.com/drive/u/?authuser=mediazestienhoven@gmail.com', color:'green' },
+        { label:'Content Calender', url:'https://docs.google.com/spreadsheets/d/1UQNB7xji1Y-qgvgPLyyblQIq1qdCBtSnWlfkmslLSaw/edit?gid=0#gid=0', color:'green' },
+        { label:'Ideeën', url:'https://docs.google.com/spreadsheets/d/1XP7NjmhkmdN7Lo1eOvvOa6QXKg8kjpKCjs8qqjai0RY/edit?gid=0#gid=0', color:'green' }
       ];
       let items = [];
       function genId(){ return 'bm_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
@@ -3070,6 +3121,20 @@
         try {
           if (!localStorage.getItem('tv-allgreen-v1')) {
             items.forEach(function (it) { it.color = 'green'; });
+            save();
+          }
+        } catch (e) {}
+        try {
+          if (!localStorage.getItem('tv-add-cc-ideas-v1')) {
+            var toAdd = [
+              { label:'Content Calender', url:'https://docs.google.com/spreadsheets/d/1UQNB7xji1Y-qgvgPLyyblQIq1qdCBtSnWlfkmslLSaw/edit?gid=0#gid=0', color:'green' },
+              { label:'Ideeën', url:'https://docs.google.com/spreadsheets/d/1XP7NjmhkmdN7Lo1eOvvOa6QXKg8kjpKCjs8qqjai0RY/edit?gid=0#gid=0', color:'green' }
+            ];
+            toAdd.forEach(function (b) {
+              var exists = items.some(function (it) { return (it.url||'') === b.url; });
+              if (!exists) items.push(Object.assign({ id: genId() }, b));
+            });
+            localStorage.setItem('tv-add-cc-ideas-v1', '1');
             save();
           }
         } catch (e) {}
@@ -3374,11 +3439,11 @@
         setTimeout(function () { els.note.focus(); }, 100);
       }
     }
-    function doClockOut() {
+    function doClockOutAt(endIso) {
       reloadState();
       if (!state.current) { render(); return; }
       const start = state.current.start;
-      const end = new Date().toISOString();
+      const end = endIso || new Date().toISOString();
       if (new Date(end).getTime() > new Date(start).getTime()) {
         const entry = { start, end, name: getUserName() };
         const note = (state.current.note || '').trim();
@@ -3392,6 +3457,7 @@
       syncSoon();
       try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
     }
+    function doClockOut() { doClockOutAt(null); }
     els.button.addEventListener('click', () => {
       reloadState();
       if (state.current) { doClockOut(); return; }
@@ -3429,9 +3495,24 @@
       if (state.current) { e.preventDefault(); e.returnValue = ''; }
     });
 
-    // ---- Inklok-vraag bij openen (alleen als je uitgeklokt bent) ----
+    // ---- Vraag bij openen: ofwel inklokken (uitgeklokt) ofwel herinnering (nog ingeklokt) ----
     function maybeAskClockIn() {
-      if (state.current) return;
+      reloadState();
+      if (state.current) {
+        // Nog ingeklokt → herinneren dat je misschien vergat uit te klokken.
+        try { if (sessionStorage.getItem('tv-asked-stillin') === '1') return; } catch (e) {}
+        const info = document.getElementById('stillin-info');
+        if (info) {
+          const st = new Date(state.current.start);
+          const sameDay = startOfDay(st).getTime() === startOfDay(new Date()).getTime();
+          const when = sameDay
+            ? fmtTime(state.current.start)
+            : st.toLocaleString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+          info.textContent = when + ' (' + fmt(Date.now() - st.getTime()) + ')';
+        }
+        openModal('modal-stillin');
+        return;
+      }
       try { if (sessionStorage.getItem('tv-asked-clockin') === '1') return; } catch (e) {}
       openModal('modal-clockin');
     }
@@ -3446,10 +3527,78 @@
       document.querySelectorAll('[data-close="modal-clockin"]').forEach(el => el.addEventListener('click', markAsked));
       const ov = document.getElementById('modal-clockin');
       if (ov) ov.addEventListener('click', (e) => { if (e.target === ov) markAsked(); });
+      // "Nog ingeklokt"-herinnering afhandelen
+      function markStillAsked(){ try { sessionStorage.setItem('tv-asked-stillin', '1'); } catch (e) {} }
+      const stillOut = document.getElementById('stillin-out');
+      if (stillOut) stillOut.addEventListener('click', () => {
+        markStillAsked();
+        closeModal('modal-stillin');
+        openClockOutModal();
+      });
+      document.querySelectorAll('[data-close="modal-stillin"]').forEach(el => el.addEventListener('click', markStillAsked));
+      const ovs = document.getElementById('modal-stillin');
+      if (ovs) ovs.addEventListener('click', (e) => { if (e.target === ovs) markStillAsked(); });
       // Toon na het wachtwoordscherm, of meteen als de pagina al ontgrendeld is
       if (window.__gateOpen) maybeAskClockIn();
       else document.addEventListener('gate-open', maybeAskClockIn, { once: true });
     })();
+
+    // ---- Uitklokken op een gekozen tijdstip (voor wie vergat uit te klokken) ----
+    const clockoutForm = document.getElementById('form-clockout');
+    const clockoutDate = document.getElementById('clockout-date');
+    const clockoutTime = document.getElementById('clockout-time');
+    const clockoutStartInfo = document.getElementById('clockout-start-info');
+    const clockoutPreview = document.getElementById('clockout-preview');
+    function updateClockoutPreview() {
+      if (!state.current || !clockoutPreview) return;
+      const d = clockoutDate.value, t = clockoutTime.value;
+      if (!d || !t) { clockoutPreview.textContent = '—'; return; }
+      const end = new Date(d + 'T' + t);
+      const startMs = new Date(state.current.start).getTime();
+      if (isNaN(end.getTime())) { clockoutPreview.textContent = 'Ongeldige tijd'; return; }
+      if (end.getTime() <= startMs) { clockoutPreview.textContent = 'Eindtijd moet na de starttijd liggen'; return; }
+      if (end.getTime() > Date.now() + 60000) { clockoutPreview.textContent = 'Eindtijd kan niet in de toekomst liggen'; return; }
+      clockoutPreview.textContent = 'Duur: ' + fmt(end.getTime() - startMs);
+    }
+    function openClockOutModal() {
+      reloadState();
+      if (!state.current) { render(); return; }
+      const now = new Date();
+      if (clockoutDate) clockoutDate.value = dateInputValue(now);
+      if (clockoutTime) clockoutTime.value = timeInputValue(now);
+      if (clockoutStartInfo) {
+        const st = new Date(state.current.start);
+        const sameDay = startOfDay(st).getTime() === startOfDay(now).getTime();
+        clockoutStartInfo.textContent = sameDay
+          ? fmtTime(state.current.start)
+          : st.toLocaleString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      }
+      updateClockoutPreview();
+      openModal('modal-clockout');
+    }
+    if (clockoutDate) clockoutDate.addEventListener('input', updateClockoutPreview);
+    if (clockoutTime) clockoutTime.addEventListener('input', updateClockoutPreview);
+    const clockoutNowBtn = document.getElementById('clockout-now');
+    if (clockoutNowBtn) clockoutNowBtn.addEventListener('click', () => {
+      closeModal('modal-clockout');
+      doClockOut();
+    });
+    if (clockoutForm) {
+      clockoutForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        reloadState();
+        if (!state.current) { closeModal('modal-clockout'); return; }
+        const d = clockoutDate.value, t = clockoutTime.value;
+        if (!d || !t) { showToast('Kies een datum en tijd', 2400); return; }
+        const end = new Date(d + 'T' + t);
+        if (isNaN(end.getTime())) { showToast('Ongeldige datum of tijd', 2400); return; }
+        const startMs = new Date(state.current.start).getTime();
+        if (end.getTime() <= startMs) { showToast('Eindtijd moet na de starttijd liggen', 2800); return; }
+        if (end.getTime() > Date.now() + 60000) { showToast('Eindtijd kan niet in de toekomst liggen', 2800); return; }
+        closeModal('modal-clockout');
+        doClockOutAt(end.toISOString());
+      });
+    }
 
     // Agenda-tegel in-/uitklappen (iframe laadt pas bij eerste keer openen)
     (function calendarToggle(){
